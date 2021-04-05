@@ -1,0 +1,63 @@
+﻿@page "/"
+
+
+@using Syncfusion.Blazor.FileManager;
+@using Syncfusion.Blazor.Popups;
+@using Syncfusion.Blazor.PdfViewer;
+@using Syncfusion.Blazor.Spinner;
+@inject HttpClient Http
+<div id="Loading" style="height:100% !important">
+    <SfSpinner @ref="spinner" Target="#Loading"></SfSpinner>
+    <SfFileManager @ref="fileManager" TValue="FileManagerDirectoryContent" RootAliasName="General">
+        <FileManagerEvents OnFileOpen="OnOpen" OnSend="@Send" TValue="FileManagerDirectoryContent" />
+        <FileManagerUploadSettings AutoClose="true" />
+        <FileManagerAjaxSettings Url="/api/AzureProvider/AzureFileOperations"
+                                 UploadUrl="/api/AzureProvider/AzureUpload"
+                                 DownloadUrl="/api/AzureProvider/AzureDownload"
+                                 GetImageUrl="/api/AzureProvider/AzureGetImage">
+        </FileManagerAjaxSettings>
+    </SfFileManager>
+    <SfDialog @bind-Visible="@isVisible" Width="80%" Height="80%" ShowCloseIcon="true" AllowDragging="true">
+        <DialogPositionData X="center" Y="center" />
+        <DialogTemplates>
+            <Header>
+                @fileName
+            </Header>
+            <Content>
+                <SfPdfViewer @ref="pdfViewer" ServiceUrl="/api/PdfViewer" DocumentPath="@pdfURL" />
+            </Content>
+        </DialogTemplates>
+    </SfDialog>
+</div>
+@code  {
+    private SfFileManager<FileManagerDirectoryContent> fileManager;
+    private SfPdfViewer pdfViewer;
+    private SfSpinner spinner;
+    private bool isVisible = false;
+    private string pdfURL;
+    private string fileName;
+    private async void OnOpen(FileOpenEventArgs<FileManagerDirectoryContent> args)
+    {
+
+
+        var selectedFile = fileManager.GetSelectedFiles()[0];
+        Console.WriteLine(selectedFile.Type);
+        if (selectedFile.Type == ".pdf")
+        {
+            await spinner.ShowAsync();
+            var bs64 = await Http.GetByteArrayAsync(selectedFile.Path);
+            pdfURL = "data:application/pdf;base64," + Convert.ToBase64String(bs64);
+            fileName = selectedFile.Name;
+            isVisible = true;
+            await spinner.HideAsync();
+            StateHasChanged();
+        }
+    }
+    private void Send(BeforeSendEventArgs args)
+    {
+        args.CustomData = new Dictionary<string, object>();
+        args.CustomData.Add("BlobPath", "clientesfiles");
+        args.CustomData.Add("FilePath", "Files");
+        args.CustomData.Add("RootPath", null);
+    }
+}
